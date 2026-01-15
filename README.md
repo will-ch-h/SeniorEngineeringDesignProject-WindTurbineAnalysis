@@ -2,9 +2,9 @@
 How can we identify the key differences of Small-scale wind turbines, specifically horizontal and vertical axis turbines, and find out which design is more efficient?
 ## To-Do
 - [x] Generator
-- [ ] Tachometer
+- [x] Tachometer
 - [ ] Voltmeter
-- [ ] Webport
+- [x] Webport
 - [ ] Mount
 - [ ] Turbines
 
