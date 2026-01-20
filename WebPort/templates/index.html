@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>WindTurbineAnalysis</title>
+    <script src="/static/socket.io.js"></script>
+    <script src="/static/chart.js"></script>
+    <style>
+        body {font-size: 40px; font-family: sans-serif; text-align: left; }
+        #rpm-output {font-size: 50px; font-weight: bold; color: #000000}
+    </style>
+</head>
+<body>
+    <div>RPM</div>
+    <div id="rpm-output">0 RPM</div>
+    <div>Watts</div>
+    <div id="watts-output"></div> <div style="width: 60%;">
+        <canvas id="rpmChart"></canvas>
+    </div>
+    <button id="clearButton">Clear</button>
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', (event) => {
+            var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+            const ctx = document.getElementById('rpmChart').getContext('2d');
+            const rpmChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'RPM',
+                        data: [],
+                        borderColor: 'rgb(0, 0, 255)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    animation: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            socket.on('rpm_update', function(msg) {
+                var outputDiv = document.getElementById('rpm-output');
+                outputDiv.textContent = msg.data + " RPM";
+
+                const newRpm = parseFloat(msg.data);
+                const currentTime = new Date().toLocaleTimeString();
+
+                const maxDataPoints = 20;
+                if (rpmChart.data.labels.length >= maxDataPoints) {
+                    rpmChart.data.labels.shift();
+                    rpmChart.data.datasets[0].data.shift();
+                }
+
+                rpmChart.data.labels.push(currentTime);
+                rpmChart.data.datasets[0].data.push(newRpm);
+                rpmChart.update();
+            });
+
+            const clearButton = document.getElementById('clearButton');
+            clearButton.addEventListener('click', function() {
+
+                rpmChart.data.labels = [];
+                rpmChart.data.datasets[0].data = [];
+                rpmChart.update();
+
+                document.getElementById('rpm-output').textContent = '0 RPM';
+            });
+        });
+    </script>
+</body>
+</html>
