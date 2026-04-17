@@ -1,6 +1,7 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 import subprocess
+import serial
 import threading
 import sys
 import os
@@ -22,6 +23,19 @@ def stream_rpm_data():
     
     process.stdout.close()
     process.wait()
+def stream_volt_data():
+    try:
+        ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        while True:
+                if ser.in_waiting > 0:
+                    line = ser.readline().decode('utf-8').strip()
+                    if line:
+                        socketio.emit('volt_update', {'data': line})         
+    except Exception as e:
+        print(f"Serial Error: {e}")
+    finally:
+        if 'ser' in locals() and ser.is_open:
+            ser.close() 
 
 @app.route('/')
 def index():
@@ -31,9 +45,14 @@ def index():
 def handle_connect():
     global thread_started
     if not thread_started:
-        thread = threading.Thread(target=stream_rpm_data)
-        thread.daemon = True
-        thread.start()
+        rpm_thread = threading.Thread(target=stream_rpm_data)
+        rpm_thread.daemon = True
+        rpm_thread.start()
+        
+        volt_thread = threading.Thread(target=stream_volt_data)
+        volt_thread.daemon = True
+        volt_thread.start()
+        
         thread_started = True
 
 if __name__ == '__main__':
