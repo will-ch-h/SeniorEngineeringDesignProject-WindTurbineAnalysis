@@ -5,71 +5,129 @@
     <script src="/static/socket.io.js"></script>
     <script src="/static/chart.js"></script>
     <style>
-        body {font-size: 40px; font-family: sans-serif; text-align: left; }
-        #rpm-output {font-size: 50px; font-weight: bold; color: #000000}
+        body { font-size: 30px; font-family: sans-serif; text-align: left; padding: 20px; }
+        .metrics-container { display: flex; gap: 40px; margin-bottom: 20px; }
+        .output-value { font-size: 50px; font-weight: bold; color: #000000; }
+        .chart-container { width: 75%; margin-bottom: 30px; }
+        button { font-size: 24px; padding: 10px 20px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div>RPM</div>
-    <div id="rpm-output">0 RPM</div>
-    <div>Watts</div>
-    <div id="watts-output"></div> <div style="width: 60%;">
-        <canvas id="rpmChart"></canvas>
+
+    <div class="metrics-container">
+        <div>
+            <div>RPM</div>
+            <div id="rpm-output" class="output-value">0 RPM</div>
+        </div>
+        <div>
+            <div>Volts</div>
+            <div id="volt-output" class="output-value">0 Volts</div>
+        </div>
     </div>
+    
+    <div class="chart-container">
+        <canvas id="turbineChart"></canvas>
+    </div>
+
     <button id="clearButton">Clear</button>
 
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', (event) => {
             var socket = io.connect('http://' + document.domain + ':' + location.port);
+            const maxDataPoints = 20;
 
-            const ctx = document.getElementById('rpmChart').getContext('2d');
-            const rpmChart = new Chart(ctx, {
+            const ctx = document.getElementById('turbineChart').getContext('2d');
+            const turbineChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: [],
-                    datasets: [{
-                        label: 'RPM',
-                        data: [],
-                        borderColor: 'rgb(0, 0, 255)',
-                        tension: 0.1
-                    }]
+                    datasets: [
+                        {
+                            label: 'RPM',
+                            data: [],
+                            borderColor: 'rgb(0, 0, 255)',
+                            backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                            yAxisID: 'yRpm', 
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Volts',
+                            data: [],
+                            borderColor: 'rgb(255, 0, 0)',
+                            backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                            yAxisID: 'yVolt', 
+                            tension: 0.1
+                        }
+                    ]
                 },
-                options: {
+                options: { 
                     animation: false,
                     scales: {
-                        y: {
-                            beginAtZero: true
+                        yRpm: {
+                            type: 'linear',
+                            position: 'left',
+                            beginAtZero: true,
+                            title: { display: true, text: 'RPM', color: 'rgb(0, 0, 255)' }
+                        },
+                        yVolt: {
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            title: { display: true, text: 'Volts', color: 'rgb(255, 0, 0)' },
+                
+                            grid: { drawOnChartArea: false } 
                         }
                     }
                 }
             });
 
+            // Handle RPM Updates
             socket.on('rpm_update', function(msg) {
-                var outputDiv = document.getElementById('rpm-output');
-                outputDiv.textContent = msg.data + " RPM";
-
+                document.getElementById('rpm-output').textContent = msg.data + " RPM";
                 const newRpm = parseFloat(msg.data);
                 const currentTime = new Date().toLocaleTimeString();
 
-                const maxDataPoints = 20;
-                if (rpmChart.data.labels.length >= maxDataPoints) {
-                    rpmChart.data.labels.shift();
-                    rpmChart.data.datasets[0].data.shift();
+                if (turbineChart.data.labels.length >= maxDataPoints) {
+                    turbineChart.data.labels.shift();
+                    turbineChart.data.datasets[0].data.shift(); 
+                    turbineChart.data.datasets[1].data.shift(); 
                 }
 
-                rpmChart.data.labels.push(currentTime);
-                rpmChart.data.datasets[0].data.push(newRpm);
-                rpmChart.update();
+                turbineChart.data.labels.push(currentTime);
+                turbineChart.data.datasets[0].data.push(newRpm);
+                turbineChart.update();
             });
 
+            // Handle Volt Updates
+            socket.on('volt_update', function(msg){
+                document.getElementById('volt-output').textContent = msg.data + " Volts";
+                const newVolt = parseFloat(msg.data);
+
+                if (turbineChart.data.labels.length === 0) {
+                    turbineChart.data.labels.push(new Date().toLocaleTimeString());
+                }
+
+                turbineChart.data.datasets[1].data.push(newVolt);
+
+                if (turbineChart.data.datasets[1].data.length > turbineChart.data.labels.length) {
+                    if (turbineChart.data.datasets[1].data.length > maxDataPoints) {
+                        turbineChart.data.datasets[1].data.shift();
+                    }
+                }
+                
+                turbineChart.update();
+            });
+
+            // Clear Button Event Listener
             const clearButton = document.getElementById('clearButton');
             clearButton.addEventListener('click', function() {
-
-                rpmChart.data.labels = [];
-                rpmChart.data.datasets[0].data = [];
-                rpmChart.update();
+                turbineChart.data.labels = [];
+                turbineChart.data.datasets[0].data = []; 
+                turbineChart.data.datasets[1].data = []; 
+                turbineChart.update();
 
                 document.getElementById('rpm-output').textContent = '0 RPM';
+                document.getElementById('volt-output').textContent = '0 Volts';
             });
         });
     </script>
